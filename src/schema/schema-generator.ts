@@ -233,11 +233,25 @@ export abstract class SchemaGenerator {
             fields: () => {
               let fields = interfaceType.fields!.reduce<GraphQLFieldConfigMap<any, any>>(
                 (fieldsMap, field) => {
+                  const fieldResolverMetadata = getMetadataStorage().fieldResolvers.find(
+                    resolver =>
+                      resolver.getObjectType!() === interfaceType.target &&
+                      resolver.methodName === field.name &&
+                      (resolver.resolverClassMetadata === undefined ||
+                        resolver.resolverClassMetadata.isAbstract === false),
+                  );
                   fieldsMap[field.schemaName] = {
-                    description: field.description,
                     type: this.getGraphQLOutputType(field.name, field.getType(), field.typeOptions),
                     args: this.generateHandlerArgs(field.params!),
-                    resolve: createBasicFieldResolver(field),
+                    resolve: fieldResolverMetadata
+                      ? createAdvancedFieldResolver(fieldResolverMetadata)
+                      : createBasicFieldResolver(field),
+                    description: field.description,
+                    deprecationReason: field.deprecationReason,
+                    extensions: {
+                      complexity: field.complexity,
+                      ...field.extensions,
+                    },
                   };
                   return fieldsMap;
                 },
